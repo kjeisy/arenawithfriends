@@ -1,0 +1,16 @@
+runtime: go
+api_version: go1
+instance_class: f1
+
+automatic_scaling:
+  max_instances: 1
+  min_pending_latency: 30ms  # default value
+  max_pending_latency: 10000ms
+  max_concurrent_requests: 80 # maximum
+
+handlers:
+- url: /api/.*
+  script: _go_app
+
+# - url: /.*
+#  static_dir: static
