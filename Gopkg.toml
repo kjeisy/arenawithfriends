@@ -25,30 +25,12 @@
 #   unused-packages = true
 
 
-[[constraint]]
-  name = "cloud.google.com/go"
-  version = "0.39.0"
-
-[[constraint]]
-  name = "github.com/gin-gonic/gin"
-  version = "1.4.0"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/heroku/x"
-
-[[constraint]]
-  name = "github.com/lithammer/shortuuid"
-  version = "3.0.3"
-
-[[constraint]]
-  name = "google.golang.org/appengine"
-  version = "1.6.0"
-
-[[constraint]]
-  name = "google.golang.org/grpc"
-  version = "1.20.1"
 
 [prune]
   go-tests = true
   unused-packages = true
+
+# required for heroku
+[metadata.heroku]
+  root-package = "github.com/kjeisy/arenawithfriends/cmd/awf"
+  install = [ "./cmd/..." ]
