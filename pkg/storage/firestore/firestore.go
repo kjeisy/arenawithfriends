@@ -54,13 +54,9 @@ func (s *Store) GetSession(req *http.Request, id string) (*controller.Session, e
 	ctx := appengine.NewContext(req)
 
 	// check if cached access is possible
-	session := getSessionMem(ctx, id)
-	if session != nil {
-		if !session.Started {
-			return session, nil
-		}
 
-		log.Errorf(ctx, "not started session was in memory cache: %s", id)
+	if session := getSessionMem(ctx, id); session != nil {
+		return session, nil
 	}
 
 	// uncached access: firestore query
@@ -85,12 +81,7 @@ func (s *Store) AddPlayer(req *http.Request, id string, playerData controller.Pl
 
 	// check if entry is in memory store -> entry can no longer be modified
 	if session := getSessionMem(ctx, id); session != nil {
-		if session.Started {
-			return session, nil
-		}
-
-		// not started but in memstore: something is wrong.
-		log.Errorf(ctx, "not started but in memstore: %s", id)
+		return session, nil
 	}
 
 	session, doc, err := getSession(ctx, id)
@@ -124,12 +115,7 @@ func (s *Store) StartSession(req *http.Request, id string) (*controller.Session,
 
 	// check if entry is in memory store -> entry can no longer be modified
 	if session := getSessionMem(ctx, id); session != nil {
-		if session.Started {
-			return session, nil
-		}
-
-		// not started but in memstore: something is wrong.
-		log.Errorf(ctx, "not started but in memstore: %s", id)
+		return session, nil
 	}
 
 	session, doc, err := getSession(ctx, id)
@@ -203,6 +189,11 @@ func getSessionMem(ctx context.Context, id string) *controller.Session {
 		if err != memcache.ErrCacheMiss {
 			log.Errorf(ctx, "could not get cached session: %v", err)
 		}
+		return nil
+	}
+
+	if !session.Started {
+		log.Errorf(ctx, "not started but in memstore: %s", id)
 		return nil
 	}
 
