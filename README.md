@@ -16,7 +16,7 @@ go get -d -u github.com/kjeisy/arenawithfriends/cmd/awf
 ```
 
 ### Google AppEngine
-In the folder `appengine` run (requires a Google Cloud account and the SDK):
+run (requires a Google Cloud account and the SDK):
 ```
 gcloud app deploy
 ```

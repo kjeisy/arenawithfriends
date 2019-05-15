@@ -1,3 +1,6 @@
+// +build !appengine
+// +build !heroku
+
 package main
 
 import (
@@ -12,5 +15,5 @@ func main() {
 	model := controller.New(mem.New())
 
 	http.Handle("/", model.Router())
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8081", nil)
 }
