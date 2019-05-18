@@ -32,5 +32,5 @@
 
 # required for heroku
 [metadata.heroku]
-  root-package = "github.com/kjeisy/arenawithfriends/cmd/awf"
-  install = [ "./cmd/..." ]
+  root-package = "github.com/kjeisy/arenawithfriends"
+  install = [ "./..." ]
