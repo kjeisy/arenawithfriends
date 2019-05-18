@@ -369,7 +369,6 @@ var app = new Vue({
 						}
 
 						app.CardPool = rep;
-						app.Picks = {};
 					});
 				} catch (e) {
 					alert(e);
