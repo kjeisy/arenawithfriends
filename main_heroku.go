@@ -3,6 +3,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"os"
 
@@ -13,9 +14,14 @@ import (
 
 func main() {
 	// initialize with a pure in-memory storage (mem)
-	model := controller.New(mem.New())
+	model, err := controller.New(mem.New(), "public/data/MTGACards.json")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	http.Handle("/api", model.Router())
+	router := model.Router()
+
+	http.Handle("/", router)
 
 	port := os.Getenv("PORT")
 	http.ListenAndServe(":"+port, nil)

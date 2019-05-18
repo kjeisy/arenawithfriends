@@ -21,8 +21,6 @@ func main() {
 	router := model.Router()
 
 	http.Handle("/", router)
-	//fs := http.FileServer(http.Dir("public"))
-	//http.Handle("/", fs)
 
 	http.ListenAndServe(":8081", nil)
 }
