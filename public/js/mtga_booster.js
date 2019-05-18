@@ -368,7 +368,10 @@ var app = new Vue({
 							return;
 						}
 
-						app.CardPool = rep;
+						app.CardPool = rep
+						if ( ! app.Picks ) {
+							app.Picks = {}
+						}
 					});
 				} catch (e) {
 					alert(e);
