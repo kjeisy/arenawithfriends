@@ -15,7 +15,7 @@ func main() {
 	// initialize with a pure in-memory storage (mem)
 	model := controller.New(mem.New())
 
-	http.Handle("/", model.Router())
+	http.Handle("/api", model.Router())
 
 	port := os.Getenv("PORT")
 	http.ListenAndServe(":"+port, nil)

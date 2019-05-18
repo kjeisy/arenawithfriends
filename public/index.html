@@ -1,0 +1,144 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8">
+	<title>MTGA Custom Booster</title>
+	<link rel="stylesheet" type="text/css" href="css/style.css">
+	<meta name="description" content="Generate random boosters from the cards of your own MTGArena collection and craft your sealed deck to play what's closest to limited on MTGA with your friends using Direct Challenge.">
+	<meta name="keywords" content="Magic the Gathering, MTG, Magic Arena, MTGA, Booster, Limited, Sealed, Draft, Friend, Direct Challenge">
+	<meta property="og:title" content="MTGA Custom Boosters">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="https://senryoku.github.io/MTGARandomBooster/">
+	<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/en/a/aa/Magic_the_gathering-card_back.jpg">
+	<meta property="og:description" content="Generate random boosters from the cards of your own MTGArena collection and craft your sealed deck to play what's closest to limited on MTGA with your friends using Direct Challenge.">
+	<meta property="og:site_name" content="MTGA Custom Boosters">
+</head>
+<body>
+	<div id="main-vue">
+		<div id="headbox" v-bind:class="{collapsed: Collection && !isEmpty(Collection) && HideCollectionManager }">
+			<h2>Select your MTGA log file</h2>
+			<input type="file" id="file-input" @change="parseMTGALog" />
+			<small>(should be located at <tt>C:\Users\-YOURNAME-\AppData\LocalLow\Wizards Of The Coast\MTGA\output_log.txt</tt>) <span v-if="CollectionDate != ''">(Last update: {{ CollectionDate }})</span></small>
+		</div>
+		
+		<div id="headbox" v-bind:class="{collapsed: Session || !Collection || isEmpty(Collection) }">
+			<h2>Collection: {{CollectionStats}} cards</h2>
+			<button type="button" v-on:click="HideCollectionManager = !HideCollectionManager">Update Collection</button>
+		</div>
+		<div id="headbox" v-bind:class="{collapsed: Session || !Collection || isEmpty(Collection) }">
+				<h2>Start a new Session:</h2>
+				<label for="set">set restriction: </label>
+				<select id="set" v-model:value="Set">
+					<option value=""></option>
+					<option v-for="setOption in Sets" v-bind:value="setOption">{{ setOption }}</option>
+				</select>
+				<input type="checkbox" id="singleton" v-model="Singleton"><label for="singleton">singleton</label>
+				<input type="checkbox" id="pauper" v-model="Pauper"><label for="pauper">pauper</label>
+				<button type="button" @click="create_session">start</button>
+		</div>
+		<div id="headbox" v-bind:class="{collapsed: Session || !Collection || isEmpty(Collection) }">
+				<h2>Connect to existing Session:</h2>
+				<input type="text" id="session-id-input" @change="textbox_set_session" />
+		</div>
+
+		<div id="headbox" v-bind:class="{collapsed: !Session  }">
+			<h2>Session ID: {{Session}}</h2>
+			<button type="button" @click="clear_session">exit</button>
+		</div>
+
+		<div id="headbox" v-bind:class="{collapsed: Player || !Session || !Collection || isEmpty(Collection)}">
+			<h2>Name:</h2>
+			<input type="text" id="name-input" v-on:keyup.enter="textbox_register"  />
+		</div>
+
+		<div id="headbox" v-bind:class="{collapsed: Started || !Player || !Session || !Collection || isEmpty(Collection)}">
+			<h2 v-for="(item, key) in SessionLobby">{{key}} {{item}}</h2>
+			<button type="button" @click="refresh_session">refresh</button>
+		    <input type="checkbox" id="ready" @click="player_ready" v-model="Ready"><label for="ready">ready</label>
+		</div>
+
+
+		
+		<div id="generator" v-show="Started">
+				
+			<div id="controls">
+				<!--
+				<div>
+					<button type="button" @click="gen_booster">Generate Booster</button>
+				</div>
+				<div>
+					<button type="button" onclick="copyToClipboard(exportMTGA(app.Boosters.flat())); alert('Boosters exported to clipboard!')">Export All</button>
+				</div>
+				-->
+				<div>
+					<button type="button" onclick="copyToClipboard(exportMTGA(app.Picks)); alert('Deck exported to clipboard!')">Export Selection</button>
+				</div>
+
+				{{CardPoolStats}} cards
+			
+				<div id="options">
+					<h2>Options</h2>
+						<!--
+					<div>
+						<label>Restrict set: </label><select id="random-booster-set" v-model:value="SetRestriction">
+							<option value=""></option>
+							<option v-for="set in Sets" v-bind:value="set">
+							{{ set }}
+							</option>
+						</select>
+						<label>Quantity: </label><input type="number" id="booster_quantity" v-model:value="BoosterQuantity" min="1" max="24">
+					</div>
+						-->
+					<!--
+					<div>
+						<label>Image size: </label><input type="number" id="image-size" value="200" min="100" step="10" max="500">
+					</div>
+					-->
+					<div>
+						<select v-model="Language">
+							<option v-for="option in Languages" v-bind:value="option.code">
+							{{ option.name }}
+							</option>
+						</select>
+						<label>Collapse by CMC in deck </label><input type="checkbox" v-model:checked="DeckOrderCMC" />
+						<label>card order: </label>
+						<select v-model:value="CardOrder">
+							<option>Color</option>
+							<option>CMC</option>
+						</select>
+					</div>
+				</div>
+			</div>
+			
+			<div id="deck" v-if="DeckUnsorted.length > 0">
+				<span class="title">Deck ({{DeckUnsorted.length}})</span>
+				<template v-if="DeckOrderCMC">
+					<div v-for="cmc_column in DeckCMC" class="cmc-column">
+						<figure is="card" v-for="(card, index) in cmc_column" v-bind:key="index" v-bind:card="card" v-bind:language="Language" v-bind:action="unpick"></figure>
+					</div>
+				</template>
+				<template v-else>
+					<figure is="card" v-for="(card, index) in DeckUnsorted" v-bind:key="index" v-bind:card="card" v-bind:language="Language" v-bind:action="unpick"></figure>
+				</template>
+			</div>
+			
+			<div id="card_pool_view" v-if="CardPoolUnsorted.length > 0">
+				<template v-if="CardOrder == 'CMC'">
+					<figure is="card" v-for="(card, index) in CardPoolCMC"  v-bind:key="card.id" v-bind:card="card" v-bind:language="Language" v-bind:action="pick"></figure>
+				</template>
+				<template v-if="CardOrder == 'Color'">
+					<figure is="card" v-for="(card, index) in CardPoolColor" v-bind:key="card.id" v-bind:card="card" v-bind:language="Language" v-bind:action="pick"></figure> 
+				</template>
+			</div>
+		</div>
+		<div v-show="!Collection || isEmpty(Collection)" id="welcome">
+			<h1>MTGA Custom Boosters</h1>
+			Use the form above to load your MTGA collection. Once done, you'll be able to generate some boosters filled with cards from your collection and create a deck from those!
+		</div>
+	</div>
+	
+	<!-- <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script> -->
+	<script src="https://cdn.jsdelivr.net/npm/vue"></script>
+	<script type="text/javascript" src="js/mtga_booster.js"></script>
+</body>
+</html>

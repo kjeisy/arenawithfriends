@@ -13,6 +13,6 @@ import (
 func main() {
 	model := controller.New(&firestore.Store{})
 
-	http.Handle("/", model.Router())
+	http.Handle("/api", model.Router())
 	appengine.Main()
 }

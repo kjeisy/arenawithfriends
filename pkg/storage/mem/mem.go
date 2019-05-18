@@ -23,7 +23,7 @@ func New() *Store {
 }
 
 // CreateSession creates a new session
-func (s *Store) CreateSession(req *http.Request) (string, error) {
+func (s *Store) CreateSession(req *http.Request, opts controller.Options) (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -35,7 +35,10 @@ func (s *Store) CreateSession(req *http.Request) (string, error) {
 		}
 	}
 
-	s.sessions[id] = &controller.Session{}
+	s.sessions[id] = &controller.Session{
+		Options: opts,
+		Players: map[string]*controller.PlayerData{},
+	}
 
 	return id, nil
 }
@@ -49,36 +52,46 @@ func (s *Store) GetSession(req *http.Request, id string) (*controller.Session, e
 }
 
 // AddPlayer adds the given PlayerData to the session (nil output == session not found)
-func (s *Store) AddPlayer(req *http.Request, id string, playerData controller.PlayerData) (*controller.Session, error) {
+func (s *Store) AddPlayer(req *http.Request, sessionID string, playerRegistration controller.PlayerRegistration) (string, *controller.Session, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	session := s.sessions[id]
+	session := s.sessions[sessionID]
 	if session == nil {
-		return nil, nil
+		return "", nil, nil
 	}
 
-	if !session.Started {
-		session.AddPlayer(playerData)
+	if session.Started {
+		return "", session, nil
 	}
 
-	return session, nil
+	var playerID string
+	for {
+		playerID = shortuuid.New()
+		if _, ok := session.Players[playerID]; !ok {
+			break
+		}
+	}
+
+	session.Players[playerID] = &controller.PlayerData{
+		PlayerName:         playerRegistration.PlayerName,
+		CompleteCollection: playerRegistration.Collection,
+	}
+
+	return playerID, session, nil
 }
 
-// StartSession starts the given session (session nil == not found)
-func (s *Store) StartSession(req *http.Request, id string) (*controller.Session, error) {
+// UpdatePlayer sets
+func (s *Store) UpdatePlayer(req *http.Request, cardDB controller.CardDB, sessionID string, playerID string, update controller.PlayerUpdate) (*controller.Session, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	session := s.sessions[id]
-
+	session := s.sessions[sessionID]
 	if session == nil {
 		return nil, nil
 	}
 
-	if !session.Started && len(session.Players) > 0 {
-		session.Started = true
-	}
+	session.UpdatePlayer(cardDB, playerID, update)
 
 	return session, nil
 }
