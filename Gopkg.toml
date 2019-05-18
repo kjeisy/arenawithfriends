@@ -33,4 +33,3 @@
 # required for heroku
 [metadata.heroku]
   root-package = "github.com/kjeisy/arenawithfriends"
-  install = [ "./..." ]
