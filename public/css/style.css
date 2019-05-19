@@ -115,7 +115,7 @@ input[type="button"]:focus {
 }
 
 #card_pool_view .card img:hover {
-	transform: scale(1.5);
+	transform: scale(1.25);
 	z-index: 999;
 }
 

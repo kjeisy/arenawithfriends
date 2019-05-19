@@ -15,17 +15,17 @@
 </head>
 <body>
 	<div id="main-vue">
-		<div id="headbox" v-bind:class="{collapsed: Collection && !isEmpty(Collection) && HideCollectionManager }">
+		<div id="headbox" v-bind:class="{collapsed: Collection && HideCollectionManager }">
 			<h2>Select your MTGA log file</h2>
 			<input type="file" id="file-input" @change="parseMTGALog" />
 			<small>(should be located at <tt>C:\Users\-YOURNAME-\AppData\LocalLow\Wizards Of The Coast\MTGA\output_log.txt</tt>) <span v-if="CollectionDate != ''">(Last update: {{ CollectionDate }})</span></small>
 		</div>
 		
-		<div id="headbox" v-bind:class="{collapsed: Session || !Collection || isEmpty(Collection) }">
+		<div id="headbox" v-bind:class="{collapsed: Session || !Collection }">
 			<h2>Collection: {{CollectionStats}} cards</h2>
 			<button type="button" v-on:click="HideCollectionManager = !HideCollectionManager">Update Collection</button>
 		</div>
-		<div id="headbox" v-bind:class="{collapsed: Session || !Collection || isEmpty(Collection) }">
+		<div id="headbox" v-bind:class="{collapsed: Session || !Collection }">
 				<h2>Start a new Session:</h2>
 				<label for="set">set restriction: </label>
 				<select id="set" v-model:value="Set">
@@ -36,7 +36,7 @@
 				<input type="checkbox" id="pauper" v-model="Pauper"><label for="pauper">pauper</label>
 				<button type="button" @click="create_session">start</button>
 		</div>
-		<div id="headbox" v-bind:class="{collapsed: Session || !Collection || isEmpty(Collection) }">
+		<div id="headbox" v-bind:class="{collapsed: Session || !Collection }">
 				<h2>Connect to existing Session:</h2>
 				<input type="text" id="session-id-input" @change="textbox_set_session" />
 		</div>
@@ -46,13 +46,13 @@
 			<button type="button" @click="clear_session">exit</button>
 		</div>
 
-		<div id="headbox" v-bind:class="{collapsed: Player || !Session || !Collection || isEmpty(Collection)}">
+		<div id="headbox" v-bind:class="{collapsed: Player  || !Session || !Collection}">
 			<h2>Name:</h2>
 			<input type="text" id="name-input" v-on:keyup.enter="textbox_register"  />
 		</div>
 
-		<div id="headbox" v-bind:class="{collapsed: Started || !Player || !Session || !Collection || isEmpty(Collection)}">
-			<h2 v-for="(item, key) in SessionLobby">{{key}} {{item}}</h2>
+		<div id="headbox" v-bind:class="{collapsed: Started || !Cards || !Player || !Session || !Collection}">
+			<h2 v-for="(item, key) in SessionLobby">{{item.name}} {{item.status}}</h2>
 			<button type="button" @click="refresh_session">refresh</button>
 		    <input type="checkbox" id="ready" @click="player_ready" v-model="Ready"><label for="ready">ready</label>
 		</div>
@@ -62,16 +62,8 @@
 		<div id="generator" v-show="Started">
 				
 			<div id="controls">
-				<!--
 				<div>
-					<button type="button" @click="gen_booster">Generate Booster</button>
-				</div>
-				<div>
-					<button type="button" onclick="copyToClipboard(exportMTGA(app.Boosters.flat())); alert('Boosters exported to clipboard!')">Export All</button>
-				</div>
-				-->
-				<div>
-					<button type="button" onclick="copyToClipboard(exportMTGA(app.Picks)); alert('Deck exported to clipboard!')">Export Selection</button>
+					<button type="button" onclick="copyToClipboard(exportMTGA(app.DeckUnsorted)); alert('Deck exported to clipboard!')">Export Selection</button>
 				</div>
 
 				{{CardPoolStats}} cards
@@ -131,7 +123,7 @@
 				</template>
 			</div>
 		</div>
-		<div v-show="!Collection || isEmpty(Collection)" id="welcome">
+		<div v-show="!Collection" id="welcome">
 			<h1>MTGA Custom Boosters</h1>
 			Use the form above to load your MTGA collection. Once done, you'll be able to generate some boosters filled with cards from your collection and create a deck from those!
 		</div>

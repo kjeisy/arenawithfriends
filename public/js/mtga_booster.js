@@ -49,7 +49,7 @@ var app = new Vue({
 		SessionDetails: null,
 		Ready: false,
 		CardPool: {},
-		Picks: localStorage.getItem("picks"),
+		Picks: null,
 		Cards: null,
 		Collection: null,
 		CollectionDate: "",
@@ -58,8 +58,7 @@ var app = new Vue({
 		Singleton: false,
 		Pauper: false,
 		Set: "",
-		// BoosterQuantity: 6,
-		// SetRestriction: "",
+		// Boosterquantity: 6,
 
 		// View options
 		Sets: Sets,
@@ -112,8 +111,11 @@ var app = new Vue({
 
 			output = [];
 			for (let cardID in this.Picks) {
+				if (cardID == 0) {
+					continue
+				}
 				details = this.getCard(cardID);
-				for (let i = 0; i<this.Picks[cardID];i++) {
+				for (let i = 0; i < this.Picks[cardID]; i++) {
 					output.push(details);
 				}
 			}
@@ -130,20 +132,22 @@ var app = new Vue({
 			return a;
 		},
 		SessionLobby: function () {
-			if ( ! this.SessionDetails ) {
+			if (!this.SessionDetails) {
 				return {}
 			}
 
 			let players = {};
 			for (var key in this.SessionDetails['players']) {
-				if (this.SessionDetails['players'][key]['ready']) {
-					players[this.SessionDetails['players'][key]['name']] = '✅';
+				playerData = this.SessionDetails['players'][key]
+				if (playerData['ready']) {
+					players[key] = {'status': '✅',};
 				} else {
-					players[this.SessionDetails['players'][key]['name']] = '⛔️';
+					players[key] = {'status': '⛔',};
 				}
+				players[key].name = playerData['name']
 
 				if (key == this.Player) {
-					this.Ready = this.SessionDetails['players'][key]['ready'];
+					this.Ready = playerData.ready
 				}
 			}
 			return players;
@@ -156,7 +160,7 @@ var app = new Vue({
 			return this.SessionDetails['started']
 		},
 		CollectionStats: function () {
-			if ( ! this.Collection) {
+			if (!this.Collection) {
 				return 0;
 			}
 
@@ -168,7 +172,7 @@ var app = new Vue({
 			return total
 		},
 		CardPoolStats: function () {
-			if ( ! this.CardPool ) {
+			if (!this.CardPool) {
 				return 0
 			}
 
@@ -181,7 +185,7 @@ var app = new Vue({
 	},
 	methods: {
 		create_session() {
-			if ( ! this.Collection ) {
+			if (!this.Collection) {
 				return
 			}
 
@@ -269,14 +273,12 @@ var app = new Vue({
 			});
 		},
 		clear_session() {
-			console.log("clearing session");
 			this.clear_registration();
 			this.Session = null;
 			localStorage.removeItem("sessionid")
 			this.CardPool = null;
 			this.Picks = null;
 			localStorage.removeItem("picks")
-			//this.Boosters = [];
 		},
 		clear_registration() {
 			this.Player = null;
@@ -287,7 +289,7 @@ var app = new Vue({
 			this.register_player(event.target.value);
 		},
 		register_player(name) {
-			if ( ! this.Session || ! this.Collection ) {
+			if (!this.Session || !this.Collection) {
 				return;
 			}
 			fetch(API + "/" + this.Session + "/players", {
@@ -369,7 +371,7 @@ var app = new Vue({
 						}
 
 						app.CardPool = rep
-						if ( ! app.Picks ) {
+						if (!app.Picks) {
 							app.Picks = {}
 						}
 					});
@@ -388,7 +390,7 @@ var app = new Vue({
 			}
 		},
 		pick(card) {
-			if ( ! this.CardPool || ! this.Picks) {
+			if (!this.CardPool || !this.Picks) {
 				return
 			}
 
@@ -403,12 +405,12 @@ var app = new Vue({
 			}
 		},
 		unpick(card) {
-			if ( ! this.Picks ) {
+			if (!this.Picks) {
 				return 
 			}
 
 			let picked = this.Picks[card.id];
-			if (! picked) {
+			if (!picked) {
 				return;
 			}
 			
@@ -438,7 +440,7 @@ var app = new Vue({
 					let collStr = contents.slice(collection_start, collection_end + 1);
 					localStorage.setItem("Collection", collStr);
 					let coll = JSON.parse(collStr)
-					if ( coll ) {
+					if (coll) {
 						app.Collection = coll
 					}
 				} catch (e) {
@@ -448,26 +450,31 @@ var app = new Vue({
 			reader.readAsText(file);
 		},
 		getCard(id) {
+			if (!this.Cards || !this.Cards[id] || !id) {
+				return
+			}
 			return {
 				id: id,
-				name: app.Cards[id].name,
-				printed_name: app.Cards[id].printed_name,
-				image_uris: app.Cards[id].image_uris,
-				set: app.Cards[id].set,
-				cmc: app.Cards[id].cmc,
-				collector_number: app.Cards[id].collector_number,
-				colors: app.Cards[id].color_identity,
+				name: this.Cards[id].name,
+				printed_name: this.Cards[id].printed_name,
+				image_uris: this.Cards[id].image_uris,
+				set: this.Cards[id].set,
+				cmc: this.Cards[id].cmc,
+				collector_number: this.Cards[id].collector_number,
+				colors: this.Cards[id].color_identity,
 			};
 		}
 	},
-	mounted: function () {
-		this.verify_session();
+	created: function () {
+		this.verify_session()
 		this.verify_player()
-		// Load all card informations
+
+		// Load card information
 		fetch("data/MTGACards.json").then(function (response) {
 			response.text().then(function (text) {
 				try {
-					tmpCards = JSON.parse(text);
+					// load cards
+					tmpCards = JSON.parse(text)
 					for (let c in app.Cards) {
 						// populate all printed names and image uris if there is no resource for the given language
 						for (let l of app.Languages) {
@@ -478,38 +485,43 @@ var app = new Vue({
 						}
 					}
 					app.Cards = tmpCards
-
-					// Look for a localy stored collection
-					let localStorageCollection = localStorage.getItem("Collection");
-					if (localStorageCollection) {
-						try {
-							let json = JSON.parse(localStorageCollection);
-							if ( json ) {
-								app.Collection = json
-							}
-							console.log("Loaded collection from local storage");
-						} catch (e) {
-							console.error(e);
-						}
-					}
 				} catch (e) {
 					alert(e);
 				}
 			});
 		});
+
+		// Look for a localy stored collection
+		let localStorageCollection = localStorage.getItem("Collection")
+		if (localStorageCollection) {
+			try {
+				let json = JSON.parse(localStorageCollection);
+				if (json) {
+					this.Collection = json
+					console.log("Loaded collection from local storage")
+				}
+			} catch (e) {
+				console.error(e);
+			}
+		}
+
+		// Look for locally stored picks
+		let picks = localStorage.getItem("picks");
+		if (picks) {
+			try {
+				let json = JSON.parse(picks);
+				if (json) {
+					this.Picks = json
+					console.log("Loaded picks from local storage");
+				}
+			} catch (e) {
+				console.error(e);
+			}
+		}
 	}
 });
 
 // Helper functions ////////////////////////////////////////////////////////////////////////////////
-
-function isEmpty(obj) {
-	console.log()
-	for (var key in obj) {
-		if (obj.hasOwnProperty(key))
-			return false;
-	}
-	return true;
-}
 
 // https://hackernoon.com/copying-text-to-clipboard-with-javascript-df4d4988697f
 const copyToClipboard = str => {
@@ -532,16 +544,20 @@ const copyToClipboard = str => {
 	}
 };
 
-function exportMTGA(arr) {
+function exportMTGA(deckUnsorted) {
 	let str = "";
-	for (c of arr) {
-		let set = c.set.toUpperCase();
+	for (card of deckUnsorted) {
+		let set = card.set.toUpperCase();
 		if (set == "DOM") set = "DAR"; // DOM is called DAR in MTGA
-		let name = c.printed_name[app.Language];
+		let name = card.printed_name[app.Language];
+
+		// multi-card handling
 		let idx = name.indexOf('//');
-		if (idx != -1)
-			name = name.substr(0, idx - 1);
-		str += `1 ${name} (${set}) ${c.collector_number}\n`
+		if (idx != -1) {
+			name = name.substr(0, idx - 1)
+		}
+
+		str += `1 ${name} (${set}) ${card.collector_number}\n`
 	}
 	return str;
 }
