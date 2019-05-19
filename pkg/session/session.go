@@ -1,4 +1,4 @@
-package controller
+package session
 
 // PlayerData contains the player's session information
 type PlayerData struct {
@@ -53,6 +53,23 @@ func (s *Session) UpdatePlayer(cardDB CardDB, playerID string, update PlayerUpda
 
 	// Check if the update made the session "startable"; start if yes
 	s.startCheck(cardDB)
+}
+
+// RemovePlayer removes a player from the session
+func (s *Session) RemovePlayer(playerID string) {
+	if s.Started {
+		return
+	}
+
+	if _, ok := s.Players[playerID]; !ok {
+		return
+	}
+
+	delete(s.Players, playerID)
+	// un-ready all players
+	for playerID := range s.Players {
+		s.Players[playerID].Ready = false
+	}
 }
 
 func (s *Session) startCheck(cardDB CardDB) {

@@ -1,92 +1,91 @@
 package mem
 
 import (
-	"net/http"
 	"sync"
 
-	"github.com/kjeisy/arenawithfriends/pkg/controller"
+	"github.com/kjeisy/arenawithfriends/pkg/session"
 	"github.com/lithammer/shortuuid"
 )
 
 // Store contains an in-memory implementation of controller.Storage
 type Store struct {
 	mutex    sync.RWMutex
-	sessions map[string]*controller.Session
+	sessions map[string]*session.Session
 }
 
 // New initializes a new memory store
 func New() *Store {
 	return &Store{
 		mutex:    sync.RWMutex{},
-		sessions: map[string]*controller.Session{},
+		sessions: map[string]*session.Session{},
 	}
 }
 
 // CreateSession creates a new session
-func (s *Store) CreateSession(req *http.Request, opts controller.Options) (string, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (st *Store) CreateSession(opts session.Options) (string, error) {
+	st.mutex.Lock()
+	defer st.mutex.Unlock()
 
 	var id string
 	for {
 		id = shortuuid.New()
-		if _, ok := s.sessions[id]; !ok {
+		if _, ok := st.sessions[id]; !ok {
 			break
 		}
 	}
 
-	s.sessions[id] = &controller.Session{
+	st.sessions[id] = &session.Session{
 		Options: opts,
-		Players: map[string]*controller.PlayerData{},
+		Players: map[string]*session.PlayerData{},
 	}
 
 	return id, nil
 }
 
 // GetSession checks the data for the given session (nil = not found)
-func (s *Store) GetSession(req *http.Request, id string) (*controller.Session, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+func (st *Store) GetSession(id string) (*session.Session, error) {
+	st.mutex.RLock()
+	defer st.mutex.RUnlock()
 
-	return s.sessions[id], nil
+	return st.sessions[id], nil
 }
 
 // AddPlayer adds the given PlayerData to the session (nil output == session not found)
-func (s *Store) AddPlayer(req *http.Request, sessionID string, playerRegistration controller.PlayerRegistration) (string, *controller.Session, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (st *Store) AddPlayer(sessionID string, playerRegistration session.PlayerRegistration) (string, *session.Session, error) {
+	st.mutex.Lock()
+	defer st.mutex.Unlock()
 
-	session := s.sessions[sessionID]
-	if session == nil {
+	s := st.sessions[sessionID]
+	if s == nil {
 		return "", nil, nil
 	}
 
-	if session.Started {
-		return "", session, nil
+	if s.Started {
+		return "", s, nil
 	}
 
 	var playerID string
 	for {
 		playerID = shortuuid.New()
-		if _, ok := session.Players[playerID]; !ok {
+		if _, ok := s.Players[playerID]; !ok {
 			break
 		}
 	}
 
-	session.Players[playerID] = &controller.PlayerData{
+	s.Players[playerID] = &session.PlayerData{
 		PlayerName:         playerRegistration.PlayerName,
 		CompleteCollection: playerRegistration.Collection,
 	}
 
-	return playerID, session, nil
+	return playerID, s, nil
 }
 
 // UpdatePlayer sets
-func (s *Store) UpdatePlayer(req *http.Request, cardDB controller.CardDB, sessionID string, playerID string, update controller.PlayerUpdate) (*controller.Session, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (st *Store) UpdatePlayer(cardDB session.CardDB, sessionID string, playerID string, update session.PlayerUpdate) (*session.Session, error) {
+	st.mutex.Lock()
+	defer st.mutex.Unlock()
 
-	session := s.sessions[sessionID]
+	session := st.sessions[sessionID]
 	if session == nil {
 		return nil, nil
 	}
@@ -94,4 +93,18 @@ func (s *Store) UpdatePlayer(req *http.Request, cardDB controller.CardDB, sessio
 	session.UpdatePlayer(cardDB, playerID, update)
 
 	return session, nil
+}
+
+// RemovePlayer removes a player
+func (st *Store) RemovePlayer(sessionID string, playerID string) *session.Session {
+	st.mutex.Lock()
+	defer st.mutex.Unlock()
+
+	session, ok := st.sessions[sessionID]
+	if !ok {
+		return session
+	}
+
+	session.RemovePlayer(playerID)
+	return session
 }

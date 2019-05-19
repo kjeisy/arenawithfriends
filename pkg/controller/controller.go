@@ -4,25 +4,30 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/kjeisy/arenawithfriends/pkg/lobby"
+	"github.com/kjeisy/arenawithfriends/pkg/session"
 )
 
 // Storage interface for creating, retrieving and modifying Sessions
 type Storage interface {
-	CreateSession(*http.Request, Options) (string, error)
-	GetSession(*http.Request, string) (*Session, error)
-	AddPlayer(*http.Request, string, PlayerRegistration) (string, *Session, error)
-	UpdatePlayer(*http.Request, CardDB, string, string, PlayerUpdate) (*Session, error)
+	CreateSession(session.Options) (string, error)
+	GetSession(string) (*session.Session, error)
+	AddPlayer(string, session.PlayerRegistration) (string, *session.Session, error)
+	RemovePlayer(string, string) *session.Session
+	UpdatePlayer(session.CardDB, string, string, session.PlayerUpdate) (*session.Session, error)
 }
 
 // Controller describes the behavior of the app
 type Controller struct {
 	storage Storage
-	cardDB  CardDB
+	cardDB  session.CardDB
+	lobby   *lobby.Lobby
 }
 
 // New initializes a fresh Controller with the given storage backend
 func New(storage Storage, path string) (*Controller, error) {
-	cardDB, err := LoadCardDB(path)
+	cardDB, err := session.LoadCardDB(path)
 	if err != nil {
 		return nil, err
 	}
@@ -30,6 +35,7 @@ func New(storage Storage, path string) (*Controller, error) {
 	return &Controller{
 		storage: storage,
 		cardDB:  cardDB,
+		lobby:   lobby.New(),
 	}, nil
 }
 
@@ -51,28 +57,30 @@ func (m *Controller) Router() http.Handler {
 
 	session.POST("", m.createSession)
 	session.POST("/:sessionID/players", m.addPlayer)
-	session.POST("/:sessionID/players/:playerID", m.updatePlayer)
+	//session.POST("/:sessionID/players/:playerID", m.updatePlayer)
 
 	session.GET("/:sessionID", m.getSession)
+	session.GET("/:sessionID/players/:playerID", m.getSessionWebSocket)
 	session.GET("/:sessionID/players/:playerID/collection", m.getSessionCollection)
 
 	return router
 }
 
 func (m *Controller) createSession(c *gin.Context) {
-	var opts Options
+	var opts session.Options
 	if err := c.BindJSON(&opts); err != nil {
 		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no session creation option data provided"})
 		return
 	}
 
-	key, err := m.storage.CreateSession(c.Request, opts)
+	sessionid, err := m.storage.CreateSession(opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create session"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"id": key})
+	m.lobby.NewSession(sessionid)
+	c.JSON(http.StatusOK, gin.H{"id": sessionid})
 }
 
 func (m *Controller) getSession(c *gin.Context) {
@@ -82,7 +90,7 @@ func (m *Controller) getSession(c *gin.Context) {
 		return
 	}
 
-	session, err := m.storage.GetSession(c.Request, id)
+	session, err := m.storage.GetSession(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching session"})
 		return
@@ -93,6 +101,79 @@ func (m *Controller) getSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, session)
+}
+
+var wsupgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func (m *Controller) getSessionWebSocket(c *gin.Context) {
+	sessionID := getSessionID(c.Params)
+	if sessionID == "" {
+		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no session ID provided"})
+		return
+	}
+	playerID := getPlayerID(c.Params)
+	if playerID == "" {
+		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no player ID provided"})
+		return
+	}
+
+	s, err := m.storage.GetSession(sessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching session"})
+		return
+	}
+	if s == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+		return
+	}
+	if _, ok := s.Players[playerID]; !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "player not found"})
+		return
+	}
+
+	conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	if err := m.lobby.RegisterConnection(sessionID, playerID, conn); err != nil {
+		conn.WriteJSON(gin.H{"error": "player already registered"})
+	}
+
+	for {
+		var update session.PlayerUpdate
+		if err := conn.ReadJSON(&update); err != nil {
+			break
+		}
+
+		session, err := m.storage.UpdatePlayer(m.cardDB, sessionID, playerID, update)
+		if err != nil {
+			conn.WriteJSON(gin.H{"error": "could not update player"})
+			continue
+		}
+		if session == nil {
+			conn.WriteJSON(gin.H{"error": "session not found"})
+			continue
+		}
+		if _, ok := session.Players[playerID]; !ok {
+			conn.WriteJSON(gin.H{"error": "player not found"})
+			continue
+		}
+
+		// broadcast change
+		m.lobby.Broadcast(sessionID, session)
+
+	}
+
+	m.lobby.Unregister(sessionID, playerID)
+	if !s.Started {
+		s = m.storage.RemovePlayer(sessionID, playerID)
+		m.lobby.Broadcast(sessionID, s)
+	}
 }
 
 func (m *Controller) getSessionCollection(c *gin.Context) {
@@ -108,7 +189,7 @@ func (m *Controller) getSessionCollection(c *gin.Context) {
 		return
 	}
 
-	session, err := m.storage.GetSession(c.Request, sessionID)
+	session, err := m.storage.GetSession(sessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching session"})
 		return
@@ -132,13 +213,13 @@ func (m *Controller) getSessionCollection(c *gin.Context) {
 }
 
 func (m *Controller) addPlayer(c *gin.Context) {
-	id := getSessionID(c.Params)
-	if id == "" {
+	sessionID := getSessionID(c.Params)
+	if sessionID == "" {
 		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no session provided"})
 		return
 	}
 
-	var playerRegistration PlayerRegistration
+	var playerRegistration session.PlayerRegistration
 	if err := c.BindJSON(&playerRegistration); err != nil {
 		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no player registration data provided"})
 		return
@@ -154,7 +235,7 @@ func (m *Controller) addPlayer(c *gin.Context) {
 		return
 	}
 
-	playerID, session, err := m.storage.AddPlayer(c.Request, id, playerRegistration)
+	playerID, session, err := m.storage.AddPlayer(sessionID, playerRegistration)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error adding player"})
 		return
@@ -172,43 +253,9 @@ func (m *Controller) addPlayer(c *gin.Context) {
 		return
 	}
 
+	m.lobby.Broadcast(sessionID, session)
+
 	c.JSON(http.StatusOK, gin.H{"id": playerID})
-}
-
-func (m *Controller) updatePlayer(c *gin.Context) {
-	sessionID := getSessionID(c.Params)
-	if sessionID == "" {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no session provided"})
-		return
-	}
-
-	playerID := getPlayerID(c.Params)
-	if playerID == "" {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no player provided"})
-		return
-	}
-
-	var playerUpdate PlayerUpdate
-	if err := c.BindJSON(&playerUpdate); err != nil {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no player update data provided"})
-		return
-	}
-
-	session, err := m.storage.UpdatePlayer(c.Request, m.cardDB, sessionID, playerID, playerUpdate)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update player"})
-		return
-	}
-	if session == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
-		return
-	}
-	if _, ok := session.Players[playerID]; !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "player not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, *session)
 }
 
 func getSessionID(params gin.Params) string {

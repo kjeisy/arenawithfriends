@@ -48,7 +48,7 @@ var app = new Vue({
 		Player: localStorage.getItem("playerid"),
 		SessionDetails: null,
 		Ready: false,
-		CardPool: {},
+		CardPool: null,
 		Picks: null,
 		Cards: null,
 		Collection: null,
@@ -67,6 +67,9 @@ var app = new Vue({
 		HideCollectionManager: true,
 		Languages: Languages,
 		Language: 'en',
+
+		// lobby socket
+		websocket: null,
 	},
 	computed: {
 		CardPoolUnsorted: function () {
@@ -184,6 +187,34 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		connect() {
+			if ( ! this.Session || !this.Player) {
+				return
+			}
+
+			let ext = "/" + API + "/" + this.Session + "/players/" + this.Player
+
+			this.websocket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + ext );
+			this.websocket.onopen = () => {
+			  console.log("Connected to websocket")
+			  
+			  this.websocket.onmessage = ({data}) => {
+				  try {
+					  console.log(data)
+					  let rep = JSON.parse(data)
+					  if (rep['error']) {
+						  console.error(e)
+						  return
+					  }
+
+					  app.set_session_details(rep)
+				  } catch(e) {
+					  console.error(e)
+				  }
+			  };
+			};
+		  },
+		 
 		create_session() {
 			if (!this.Collection) {
 				return
@@ -266,6 +297,10 @@ var app = new Vue({
 
 						localStorage.setItem("playerid", app.Player)
 						app.set_session_details(rep)
+
+						if ( rep['started'] == false ) {
+							app.connect()
+						}
 					});
 				} catch (e) {
 					alert(e);
@@ -277,6 +312,7 @@ var app = new Vue({
 			this.Session = null;
 			localStorage.removeItem("sessionid")
 			this.CardPool = null;
+			localStorage.removeItem("cardpool")
 			this.Picks = null;
 			localStorage.removeItem("picks")
 		},
@@ -284,11 +320,17 @@ var app = new Vue({
 			this.Player = null;
 			this.SessionDetails = null;
 			localStorage.removeItem("playerid")
+
+			if ( this.websocket ) {
+				this.websocket.close()
+				this.websocket = null
+			}
 		},
 		textbox_register(event) {
 			this.register_player(event.target.value);
 		},
 		register_player(name) {
+			console.log("register player")
 			if (!this.Session || !this.Collection) {
 				return;
 			}
@@ -302,11 +344,11 @@ var app = new Vue({
 				try {
 					response.json().then(function (rep) {
 						if (rep['id']) {
-							app.set_player(rep['id']);
+							app.set_player(rep['id'])
 							return;
 						}
-						alert(rep['error']);
-						clear_registration();
+						alert(rep['error'])
+						clear_registration()
 					});
 				} catch (e) {
 					alert(e);
@@ -318,45 +360,30 @@ var app = new Vue({
 			this.verify_player()
 		},
 		player_ready(event) {
-			if (!this.Player || !this.Session) {
+			if (!this.Player || !this.Session || !this.websocket ) {
 				return;
 			}
 
-			fetch(API + "/" + this.Session + "/players/" + this.Player, {
-				method: 'POST',
-				body: JSON.stringify({
-					ready: event.target.checked,
-				})
-			}).then(function (response) {
-				try {
-					response.json().then(function (rep) {
-						if (rep['error']) {
-							alert(rep['error']);
-							return;
-						}
-
-						app.set_session_details(rep);
-					});
-				} catch (e) {
-					alert(e);
-				}
-			});
+			this.websocket.send(JSON.stringify({
+				ready: event.target.checked,
+			}))
+			console.log("Sent message.");
 		},
-		refresh_session() {
-			if (!this.Session) {
-				return
-			}
+		// refresh_session() {
+		// 	if (!this.Session) {
+		// 		return
+		// 	}
 
-			fetch(API + "/" + this.Session).then(function (response) {
-				try {
-					response.json().then(function (rep) {
-						app.set_session_details(rep);
-					});
-				} catch {
-					alert(e)
-				}
-			});
-		},
+		// 	fetch(API + "/" + this.Session).then(function (response) {
+		// 		try {
+		// 			response.json().then(function (rep) {
+		// 				app.set_session_details(rep);
+		// 			});
+		// 		} catch {
+		// 			alert(e)
+		// 		}
+		// 	});
+		// },
 		load_card_pool() {
 			if (!this.Session || !this.Player || !this.Started) {
 				return
@@ -371,6 +398,7 @@ var app = new Vue({
 						}
 
 						app.CardPool = rep
+						localStorage.setItem("cardpool", JSON.stringify(rep))
 						if (!app.Picks) {
 							app.Picks = {}
 						}
@@ -386,6 +414,10 @@ var app = new Vue({
 
 			// started now, not started before
 			if (details['started'] && !started) {
+				if ( this.websocket ) {
+					this.websocket.close()
+					this.websocket = null
+				}
 				this.load_card_pool();
 			}
 		},
@@ -466,9 +498,6 @@ var app = new Vue({
 		}
 	},
 	created: function () {
-		this.verify_session()
-		this.verify_player()
-
 		// Load card information
 		fetch("data/MTGACards.json").then(function (response) {
 			response.text().then(function (text) {
@@ -518,6 +547,27 @@ var app = new Vue({
 				console.error(e);
 			}
 		}
+
+		// Look for locally stored cardpool
+		let cardpool = localStorage.getItem("cardpool");
+		if (cardpool) {
+			try {
+				let json = JSON.parse(cardpool);
+				if (json) {
+					this.CardPool = json
+					console.log("Loaded cardpool from local storage");
+				}
+			} catch (e) {
+				console.error(e);
+			}
+		}
+
+		// if the cardpool is stored locally, don't do any API calls to verify session validity
+		if ( this.CardPool ) {
+			return
+		}
+		this.verify_session()
+		this.verify_player()
 	}
 });
 

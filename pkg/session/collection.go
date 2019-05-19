@@ -1,4 +1,4 @@
-package controller
+package session
 
 // Collection represents a card collection (id -> number of cards)
 type Collection map[ArenaID]byte
