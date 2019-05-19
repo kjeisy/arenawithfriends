@@ -142,6 +142,7 @@ func (m *Controller) getSessionWebSocket(c *gin.Context) {
 
 	if err := m.lobby.RegisterConnection(sessionID, playerID, conn); err != nil {
 		conn.WriteJSON(gin.H{"error": "player already registered"})
+		return
 	}
 
 	for {

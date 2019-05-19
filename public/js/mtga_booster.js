@@ -51,13 +51,11 @@ var app = new Vue({
 		Picks: null,
 		Cards: null,
 		Collection: null,
-		CollectionDate: "",
 		
 		// Session Creation Options
 		Singleton: false,
 		Pauper: false,
 		Set: "",
-		// Boosterquantity: 6,
 
 		// View options
 		Ready: false,
@@ -136,7 +134,7 @@ var app = new Vue({
 		},
 		SessionLobby: function () {
 			if (!this.SessionDetails) {
-				return {}
+				return null
 			}
 
 			let players = {};
@@ -196,7 +194,10 @@ var app = new Vue({
 					  console.log(data)
 					  let rep = JSON.parse(data)
 					  if (rep['error']) {
-						  console.error(e)
+						  alert("Error: " + rep['error'] + "\nCheck if you already have an open window")
+						  this.websocket.close()
+						  this.websocket = null
+						  this.SessionDetails = null
 						  return
 					  }
 
@@ -252,7 +253,7 @@ var app = new Vue({
 				try {
 					response.json().then(function (rep) {
 						if (rep['error']) {
-							console.log("session not found: " + app.Session);
+							alert("session not found: " + app.Session);
 							app.clear_session();
 							return;
 						}
@@ -362,21 +363,6 @@ var app = new Vue({
 			}))
 			console.log("Sent message.");
 		},
-		// refresh_session() {
-		// 	if (!this.Session) {
-		// 		return
-		// 	}
-
-		// 	fetch(API + "/" + this.Session).then(function (response) {
-		// 		try {
-		// 			response.json().then(function (rep) {
-		// 				app.set_session_details(rep);
-		// 			});
-		// 		} catch {
-		// 			alert(e)
-		// 		}
-		// 	});
-		// },
 		load_card_pool() {
 			if (!this.Session || !this.Player || !this.SessionDetails || !this.SessionDetails['started']) {
 				return
@@ -593,7 +579,7 @@ const copyToClipboard = str => {
 function exportMTGA(deckUnsorted) {
 	let str = "";
 	for (card of deckUnsorted) {
-		//`j`let set = card.set.toUpperCase();
+		let set = card.set.toUpperCase();
 		if (set == "DOM") set = "DAR"; // DOM is called DAR in MTGA
 		let name = card.printed_name[app.Language];
 

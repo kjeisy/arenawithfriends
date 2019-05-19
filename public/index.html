@@ -18,7 +18,7 @@
 		<div id="headbox" v-bind:class="{collapsed: Collection && HideCollectionManager }">
 			<h2>Select your MTGA log file</h2>
 			<input type="file" id="file-input" @change="parseMTGALog" />
-			<small>(should be located at <tt>C:\Users\-YOURNAME-\AppData\LocalLow\Wizards Of The Coast\MTGA\output_log.txt</tt>) <span v-if="CollectionDate != ''">(Last update: {{ CollectionDate }})</span></small>
+			<small>(should be located at <tt>C:\Users\-YOURNAME-\AppData\LocalLow\Wizards Of The Coast\MTGA\output_log.txt</tt>)</small>
 		</div>
 		
 		<div id="headbox" v-bind:class="{collapsed: Session || !Collection }">
@@ -51,9 +51,8 @@
 			<input type="text" id="name-input" v-on:keyup.enter="textbox_register"  />
 		</div>
 
-		<div id="headbox" v-bind:class="{collapsed: CardPool || !Cards || !Player || !Session || !Collection}">
+		<div id="headbox" v-bind:class="{collapsed: CardPool || !SessionLobby || !Cards || !Player || !Session || !Collection}">
 			<h2 v-for="(item, key) in SessionLobby">{{item.name}} {{item.status}}</h2>
-			<!-- <button type="button" @click="refresh_session">refresh</button> -->
 		    <input type="checkbox" id="ready" @click="player_ready" v-model="Ready"><label for="ready">ready</label>
 		</div>
 
@@ -70,20 +69,9 @@
 			
 				<div id="options">
 					<h2>Options</h2>
-						<!--
-					<div>
-						<label>Restrict set: </label><select id="random-booster-set" v-model:value="SetRestriction">
-							<option value=""></option>
-							<option v-for="set in Sets" v-bind:value="set">
-							{{ set }}
-							</option>
-						</select>
-						<label>Quantity: </label><input type="number" id="booster_quantity" v-model:value="BoosterQuantity" min="1" max="24">
-					</div>
-						-->
 					<!--
 					<div>
-						<label>Image size: </label><input type="number" id="image-size" value="200" min="100" step="10" max="500">
+						<label>Quantity: </label><input type="number" id="booster_quantity" v-model:value="BoosterQuantity" min="1" max="24">
 					</div>
 					-->
 					<div>
@@ -123,9 +111,23 @@
 				</template>
 			</div>
 		</div>
-		<div v-show="!Collection" id="welcome">
-			<h1>MTGA Custom Boosters</h1>
-			Use the form above to load your MTGA collection. Once done, you'll be able to generate some boosters filled with cards from your collection and create a deck from those!
+		<div v-show="!Session" id="welcome">
+			<h1>Arena With Friends</h1>
+			<div>
+				Create custom card pools to play with your friends. Only cards that all players own will be available to be played
+			</div>
+			<div v-show="!Collection">
+				To start, upload your MTGA log so that we can extract your collection from that.
+			</div>
+			<div v-show="Collection">
+				<h2>Session Options:</h2>
+				<ul>
+					<li>Set: restrict cards to a certain set</li>
+					<li>Singleton: only allow each card once</li>
+					<li>Pauper: only include Common cards</li>
+				</ul>
+			</div>
+			
 		</div>
 	</div>
 	
