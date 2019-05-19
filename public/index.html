@@ -51,7 +51,7 @@
 			<input type="text" id="name-input" v-on:keyup.enter="textbox_register"  />
 		</div>
 
-		<div id="headbox" v-bind:class="{collapsed: Started || !Cards || !Player || !Session || !Collection}">
+		<div id="headbox" v-bind:class="{collapsed: CardPool || !Cards || !Player || !Session || !Collection}">
 			<h2 v-for="(item, key) in SessionLobby">{{item.name}} {{item.status}}</h2>
 			<!-- <button type="button" @click="refresh_session">refresh</button> -->
 		    <input type="checkbox" id="ready" @click="player_ready" v-model="Ready"><label for="ready">ready</label>
@@ -59,7 +59,7 @@
 
 
 		
-		<div id="generator" v-show="Started">
+		<div id="generator" v-show="CardPool">
 				
 			<div id="controls">
 				<div>

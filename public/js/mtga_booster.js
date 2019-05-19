@@ -47,7 +47,6 @@ var app = new Vue({
 		Session: localStorage.getItem("sessionid"),
 		Player: localStorage.getItem("playerid"),
 		SessionDetails: null,
-		Ready: false,
 		CardPool: null,
 		Picks: null,
 		Cards: null,
@@ -61,6 +60,7 @@ var app = new Vue({
 		// Boosterquantity: 6,
 
 		// View options
+		Ready: false,
 		Sets: Sets,
 		CardOrder: "Color",
 		DeckOrderCMC: true,
@@ -154,13 +154,6 @@ var app = new Vue({
 				}
 			}
 			return players;
-		},
-		Started: function () {
-			if (!this.SessionDetails || !this.SessionDetails['started']) {
-				return false
-			}
-
-			return this.SessionDetails['started']
 		},
 		CollectionStats: function () {
 			if (!this.Collection) {
@@ -385,7 +378,7 @@ var app = new Vue({
 		// 	});
 		// },
 		load_card_pool() {
-			if (!this.Session || !this.Player || !this.Started) {
+			if (!this.Session || !this.Player || !this.SessionDetails || !this.SessionDetails['started']) {
 				return
 			}
 
@@ -401,7 +394,9 @@ var app = new Vue({
 						localStorage.setItem("cardpool", JSON.stringify(rep))
 						if (!app.Picks) {
 							app.Picks = {}
+							localStorage.setItem("picks", JSON.stringify(app.Picks))
 						}
+
 					});
 				} catch (e) {
 					alert(e);
