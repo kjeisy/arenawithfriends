@@ -170,8 +170,8 @@ func (m *Controller) getSessionWebSocket(c *gin.Context) {
 	}
 
 	m.lobby.Unregister(sessionID, playerID)
-	if !s.Started {
-		s = m.storage.RemovePlayer(sessionID, playerID)
+	s = m.storage.RemovePlayer(sessionID, playerID)
+	if s != nil {
 		m.lobby.Broadcast(sessionID, s)
 	}
 }

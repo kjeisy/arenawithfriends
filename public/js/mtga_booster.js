@@ -397,6 +397,11 @@ var app = new Vue({
 							localStorage.setItem("picks", JSON.stringify(app.Picks))
 						}
 
+						// need to load card pool before closing websocket (session data is removed afterwards)
+						if ( app.websocket ) {
+							app.websocket.close()
+							app.websocket = null
+						}
 					});
 				} catch (e) {
 					alert(e);
@@ -409,10 +414,6 @@ var app = new Vue({
 
 			// started now, not started before
 			if (details['started'] && !started) {
-				if ( this.websocket ) {
-					this.websocket.close()
-					this.websocket = null
-				}
 				this.load_card_pool();
 			}
 		},
@@ -592,7 +593,7 @@ const copyToClipboard = str => {
 function exportMTGA(deckUnsorted) {
 	let str = "";
 	for (card of deckUnsorted) {
-		let set = card.set.toUpperCase();
+		//`j`let set = card.set.toUpperCase();
 		if (set == "DOM") set = "DAR"; // DOM is called DAR in MTGA
 		let name = card.printed_name[app.Language];
 

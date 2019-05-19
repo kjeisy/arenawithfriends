@@ -57,10 +57,6 @@ func (s *Session) UpdatePlayer(cardDB CardDB, playerID string, update PlayerUpda
 
 // RemovePlayer removes a player from the session
 func (s *Session) RemovePlayer(playerID string) {
-	if s.Started {
-		return
-	}
-
 	if _, ok := s.Players[playerID]; !ok {
 		return
 	}

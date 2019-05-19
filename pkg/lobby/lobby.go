@@ -1,7 +1,6 @@
 package lobby
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -52,10 +51,8 @@ func (l *Lobby) Broadcast(sessionID string, sessionData *session.Session) {
 		return
 	}
 
-	fmt.Printf("%s: broadcast to %d sessions\n", sessionID, len(sessions))
 	for playerID, broadcastConn := range sessions {
 		if err := broadcastConn.WriteJSON(*sessionData); err != nil {
-			fmt.Printf("%s: (player %s) could not send to, closing", sessionID, playerID)
 			broadcastConn.Close()
 			delete(l.sessions[sessionID], playerID)
 		}
@@ -70,4 +67,9 @@ func (l *Lobby) Unregister(sessionID string, playerID string) {
 		return
 	}
 	delete(l.sessions[sessionID], playerID)
+
+	// if this was the last player, remove the whole session
+	if len(l.sessions[sessionID]) == 0 {
+		delete(l.sessions, sessionID)
+	}
 }
