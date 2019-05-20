@@ -56,6 +56,14 @@ var app = new Vue({
 		Singleton: false,
 		Pauper: false,
 		Set: "",
+		ColorFilter: {
+			white: true,
+			blue: true,
+			black: true,
+			red: true,
+			green: true,
+			colorless: true,
+		},
 
 		// View options
 		Ready: false,
@@ -222,6 +230,7 @@ var app = new Vue({
 					singleton: this.Singleton,
 					pauper: this.Pauper,
 					set: this.Set,
+					color: this.ColorFilter,
 				})
 			}).then(function (response) {
 				try {

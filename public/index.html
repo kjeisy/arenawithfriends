@@ -2,16 +2,8 @@
 <html lang="en-US">
 <head>
 	<meta charset="UTF-8">
-	<title>MTGA Custom Booster</title>
+	<title>Arena with Friends</title>
 	<link rel="stylesheet" type="text/css" href="css/style.css">
-	<meta name="description" content="Generate random boosters from the cards of your own MTGArena collection and craft your sealed deck to play what's closest to limited on MTGA with your friends using Direct Challenge.">
-	<meta name="keywords" content="Magic the Gathering, MTG, Magic Arena, MTGA, Booster, Limited, Sealed, Draft, Friend, Direct Challenge">
-	<meta property="og:title" content="MTGA Custom Boosters">
-	<meta property="og:type" content="website">
-	<meta property="og:url" content="https://senryoku.github.io/MTGARandomBooster/">
-	<meta property="og:image" content="https://upload.wikimedia.org/wikipedia/en/a/aa/Magic_the_gathering-card_back.jpg">
-	<meta property="og:description" content="Generate random boosters from the cards of your own MTGArena collection and craft your sealed deck to play what's closest to limited on MTGA with your friends using Direct Challenge.">
-	<meta property="og:site_name" content="MTGA Custom Boosters">
 </head>
 <body>
 	<div id="main-vue">
@@ -26,19 +18,43 @@
 			<button type="button" v-on:click="HideCollectionManager = !HideCollectionManager">Update Collection</button>
 		</div>
 		<div id="headbox" v-bind:class="{collapsed: Session || !Collection }">
-				<h2>Start a new Session:</h2>
-				<label for="set">set restriction: </label>
-				<select id="set" v-model:value="Set">
-					<option value=""></option>
-					<option v-for="setOption in Sets" v-bind:value="setOption">{{ setOption }}</option>
-				</select>
-				<input type="checkbox" id="singleton" v-model="Singleton"><label for="singleton">singleton</label>
-				<input type="checkbox" id="pauper" v-model="Pauper"><label for="pauper">pauper</label>
-				<button type="button" @click="create_session">start</button>
-		</div>
-		<div id="headbox" v-bind:class="{collapsed: Session || !Collection }">
-				<h2>Connect to existing Session:</h2>
+			<div>
+				<h3>Connect to existing Session:</h3>
 				<input type="text" id="session-id-input" @change="textbox_set_session" />
+			</div>
+			<div>
+				<h3>Start a new Session:</h3>
+				<ul>
+					<li>
+						<label for="set">set restriction: </label>
+						<select id="set" v-model:value="Set">
+						<option value=""></option>
+						<option v-for="setOption in Sets" v-bind:value="setOption">{{ setOption }}</option>
+						</select>
+					</li>
+					<li>
+						<label>special filters:</label>
+						<input type="checkbox" id="singleton" v-model="Singleton"><label for="singleton">singleton</label>
+						<input type="checkbox" id="pauper" v-model="Pauper"><label for="pauper">pauper</label>
+					</li>
+					<li>
+						<label>color filter:</label>
+
+						<span v-for="(item,key) in ColorFilter" >
+						<input type="checkbox" v-model="ColorFilter[key]"><label>{{key}}</label>
+						</span>
+
+						<!-- <input type="checkbox" id="blue" v-model="Blue"><label for="blue">blue</label>
+						<input type="checkbox" id="black" v-model="Black"><label for="black">black</label>
+						<input type="checkbox" id="red" v-model="Red"><label for="red">red</label>
+						<input type="checkbox" id="green" v-model="Green"><label for="green">green</label>
+						<input type="checkbox" id="colorless" v-model="Colorless"><label for="colorless">colorless</label> -->
+					</li>
+					<li>
+						<button type="button" @click="create_session">start</button>
+					</li>
+				</ul>
+			</div>
 		</div>
 
 		<div id="headbox" v-bind:class="{collapsed: !Session  }">
@@ -69,11 +85,6 @@
 			
 				<div id="options">
 					<h2>Options</h2>
-					<!--
-					<div>
-						<label>Quantity: </label><input type="number" id="booster_quantity" v-model:value="BoosterQuantity" min="1" max="24">
-					</div>
-					-->
 					<div>
 						<select v-model="Language">
 							<option v-for="option in Languages" v-bind:value="option.code">
@@ -93,7 +104,8 @@
 			<div id="deck" v-if="DeckUnsorted.length > 0">
 				<span class="title">Deck ({{DeckUnsorted.length}})</span>
 				<template v-if="DeckOrderCMC">
-					<div v-for="cmc_column in DeckCMC" class="cmc-column">
+					<div v-for="(cmc_column, cmc) in DeckCMC" class="cmc-column">
+						{{cmc}}
 						<figure is="card" v-for="(card, index) in cmc_column" v-bind:key="index" v-bind:card="card" v-bind:language="Language" v-bind:action="unpick"></figure>
 					</div>
 				</template>
@@ -112,9 +124,9 @@
 			</div>
 		</div>
 		<div v-show="!Session" id="welcome">
-			<h1>Arena With Friends</h1>
+			<h1>Arena with Friends</h1>
 			<div>
-				Create custom card pools to play with your friends. Only cards that all players own will be available to be played
+				Create custom card pools to play with your friends. Only cards that all players own will be available to be played.
 			</div>
 			<div v-show="!Collection">
 				To start, upload your MTGA log so that we can extract your collection from that.
@@ -125,6 +137,7 @@
 					<li>Set: restrict cards to a certain set</li>
 					<li>Singleton: only allow each card once</li>
 					<li>Pauper: only include Common cards</li>
+					<li>Colors: remove certain colors from the session</li>
 				</ul>
 			</div>
 			

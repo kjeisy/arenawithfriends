@@ -26,10 +26,41 @@ type PlayerUpdate struct {
 
 // Options describes which kind of game is played
 type Options struct {
-	Singleton bool   `firestore:"singleton" json:"singleton"`
-	Pauper    bool   `firestore:"pauper" json:"pauper"`
-	Set       string `firestore:"set" json:"set"`
+	Singleton    bool `firestore:"singleton" json:"singleton"`
+	Pauper       bool `firestore:"pauper" json:"pauper"`
+	ColorOptions `json:"color"`
+	Set          string `firestore:"set" json:"set"`
 }
+
+// ColorOptions contains all settings related to colors
+type ColorOptions struct {
+	White     bool `json:"white"`
+	Blue      bool `json:"blue"`
+	Black     bool `json:"black"`
+	Red       bool `json:"red"`
+	Green     bool `json:"green"`
+	Colorless bool `json:"colorless"`
+}
+
+// Lookup does a lookup with the given color string
+func (c ColorOptions) Lookup(color string) bool {
+	switch color {
+	case "W":
+		return c.White
+	case "U":
+		return c.Blue
+	case "B":
+		return c.Black
+	case "R":
+		return c.Red
+	case "G":
+		return c.Green
+	}
+
+	return false
+}
+
+func allColors() ColorOptions { return ColorOptions{true, true, true, true, true, true} }
 
 // Session describes a playsession
 type Session struct {
@@ -97,6 +128,11 @@ func (s *Session) constructed(cardDB CardDB) {
 		}
 
 		collection.Intersect(player.CompleteCollection)
+	}
+
+	// filter colors
+	if s.Options.ColorOptions != allColors() {
+		collection.FilterColors(cardDB, s.Options.ColorOptions)
 	}
 
 	// set filter

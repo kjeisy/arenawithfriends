@@ -88,6 +88,34 @@ func (c Collection) FilterSet(cardDB CardDB, set string) {
 	}
 }
 
+// FilterColors removes non-configured colors from the collection
+func (c Collection) FilterColors(cardDB CardDB, colors ColorOptions) {
+	for arenaID := range c {
+		cardDetails, ok := cardDB[arenaID]
+		if !ok {
+			delete(c, arenaID)
+			continue
+		}
+
+		if len(cardDetails.ColorIdentity) == 0 {
+			if !colors.Colorless {
+				delete(c, arenaID)
+			}
+			continue
+		}
+
+		// all colors need to match for it to stay in the collection
+		for _, color := range cardDetails.ColorIdentity {
+			match := colors.Lookup(color)
+
+			if !match {
+				delete(c, arenaID)
+				break
+			}
+		}
+	}
+}
+
 // Copy creates a duplicate collection and returns it
 func (c Collection) Copy() Collection {
 	out := Collection{}
