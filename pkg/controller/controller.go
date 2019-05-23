@@ -56,11 +56,9 @@ func (m *Controller) Router() http.Handler {
 	session := root.Group("/api/v1/sessions")
 
 	session.POST("", m.createSession)
-	session.POST("/:sessionID/players", m.addPlayer)
-	//session.POST("/:sessionID/players/:playerID", m.updatePlayer)
 
 	session.GET("/:sessionID", m.getSession)
-	session.GET("/:sessionID/players/:playerID", m.getSessionWebSocket)
+	session.GET("/:sessionID/players", m.getSessionWebSocket)
 	session.GET("/:sessionID/players/:playerID/collection", m.getSessionCollection)
 
 	return router
@@ -114,37 +112,63 @@ func (m *Controller) getSessionWebSocket(c *gin.Context) {
 		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no session ID provided"})
 		return
 	}
-	playerID := getPlayerID(c.Params)
-	if playerID == "" {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no player ID provided"})
-		return
-	}
 
-	s, err := m.storage.GetSession(sessionID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching session"})
-		return
-	}
-	if s == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
-		return
-	}
-	if _, ok := s.Players[playerID]; !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "player not found"})
-		return
-	}
-
+	// create websocket
 	conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
 
+	// first we require a player registration on the socket
+	var playerRegistration session.PlayerRegistration
+	if err := conn.ReadJSON(&playerRegistration); err != nil {
+		conn.WriteJSON(gin.H{"error": "no player registration data provided"})
+		return
+	}
+
+	if playerRegistration.Name == "" {
+		conn.WriteJSON(gin.H{"error": "no player name provided"})
+		return
+	}
+
+	if len(playerRegistration.Collection) == 0 {
+		conn.WriteJSON(gin.H{"error": "empty collection provided"})
+		return
+	}
+
+	// add player, broadcast change
+	playerID, s, err := m.storage.AddPlayer(sessionID, playerRegistration)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": "error adding player"})
+		return
+	}
+	if s == nil {
+		conn.WriteJSON(gin.H{"error": "session not found"})
+		return
+	}
+	if s.Started {
+		conn.WriteJSON(gin.H{"error": "session already started"})
+		return
+	}
+	if playerID == "" {
+		conn.WriteJSON(gin.H{"error": "error adding player"})
+		return
+	}
+
+	// reply with player ID
+	conn.WriteJSON(gin.H{"id": playerID})
+
+	// add player to lobby
 	if err := m.lobby.RegisterConnection(sessionID, playerID, conn); err != nil {
 		conn.WriteJSON(gin.H{"error": "player already registered"})
 		return
 	}
 
+	// broadcast change
+	m.lobby.Broadcast(sessionID, s)
+
+	// read and distribute updates
 	for {
 		var update session.PlayerUpdate
 		if err := conn.ReadJSON(&update); err != nil {
@@ -211,52 +235,6 @@ func (m *Controller) getSessionCollection(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, player.SessionCollection)
-}
-
-func (m *Controller) addPlayer(c *gin.Context) {
-	sessionID := getSessionID(c.Params)
-	if sessionID == "" {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no session provided"})
-		return
-	}
-
-	var playerRegistration session.PlayerRegistration
-	if err := c.BindJSON(&playerRegistration); err != nil {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no player registration data provided"})
-		return
-	}
-
-	if playerRegistration.Name == "" {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "no player name provided"})
-		return
-	}
-
-	if len(playerRegistration.Collection) == 0 {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "empty collection provided"})
-		return
-	}
-
-	playerID, session, err := m.storage.AddPlayer(sessionID, playerRegistration)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error adding player"})
-		return
-	}
-	if session == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
-		return
-	}
-	if session.Started {
-		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "session already started"})
-		return
-	}
-	if playerID == "" {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error adding player"})
-		return
-	}
-
-	m.lobby.Broadcast(sessionID, session)
-
-	c.JSON(http.StatusOK, gin.H{"id": playerID})
 }
 
 func getSessionID(params gin.Params) string {

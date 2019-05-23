@@ -33,22 +33,20 @@
 						</select>
 					</li>
 					<li>
-						<label>special filters:</label>
-						<input type="checkbox" id="singleton" v-model="Singleton"><label for="singleton">singleton</label>
-						<input type="checkbox" id="pauper" v-model="Pauper"><label for="pauper">pauper</label>
+						<label>rarity filter:</label>
+						<span v-for="(item,key) in RarityFilter" >
+						<input type="checkbox" v-model="RarityFilter[key]"><label>{{key}}</label>
+						</span>
 					</li>
 					<li>
 						<label>color filter:</label>
-
 						<span v-for="(item,key) in ColorFilter" >
 						<input type="checkbox" v-model="ColorFilter[key]"><label>{{key}}</label>
 						</span>
-
-						<!-- <input type="checkbox" id="blue" v-model="Blue"><label for="blue">blue</label>
-						<input type="checkbox" id="black" v-model="Black"><label for="black">black</label>
-						<input type="checkbox" id="red" v-model="Red"><label for="red">red</label>
-						<input type="checkbox" id="green" v-model="Green"><label for="green">green</label>
-						<input type="checkbox" id="colorless" v-model="Colorless"><label for="colorless">colorless</label> -->
+					</li>
+					<li>
+						<label>special filters:</label>
+						<input type="checkbox" id="singleton" v-model="Singleton"><label for="singleton">singleton</label>
 					</li>
 					<li>
 						<button type="button" @click="create_session">start</button>
@@ -57,17 +55,17 @@
 			</div>
 		</div>
 
-		<div id="headbox" v-bind:class="{collapsed: !Session  }">
+		<div id="headbox" v-bind:class="{collapsed: CardPool || !Session || (! SessionLobby && Player )}">
 			<h2>Session ID: {{Session}}</h2>
 			<button type="button" @click="clear_session">exit</button>
 		</div>
 
-		<div id="headbox" v-bind:class="{collapsed: Player  || !Session || !Collection}">
+		<div id="headbox" v-bind:class="{collapsed: CardPool || SessionLobby || !Session }">
 			<h2>Name:</h2>
 			<input type="text" id="name-input" v-on:keyup.enter="textbox_register"  />
 		</div>
 
-		<div id="headbox" v-bind:class="{collapsed: CardPool || !SessionLobby || !Cards || !Player || !Session || !Collection}">
+		<div id="headbox" v-bind:class="{collapsed: CardPool || !SessionLobby }">
 			<h2 v-for="(item, key) in SessionLobby">{{item.name}} {{item.status}}</h2>
 		    <input type="checkbox" id="ready" @click="player_ready" v-model="Ready"><label for="ready">ready</label>
 		</div>
@@ -75,6 +73,9 @@
 
 		
 		<div id="generator" v-show="CardPool">
+			<div>
+				<button type="button" style="float: right;" @click="clear_session">exit</button>
+			</div>
 				
 			<div id="controls">
 				<div>

@@ -109,6 +109,8 @@ func (st *Store) RemovePlayer(sessionID string, playerID string) *session.Sessio
 
 	if len(session.Players) == 0 {
 		delete(st.sessions, sessionID)
+		return nil
 	}
-	return nil
+
+	return session
 }

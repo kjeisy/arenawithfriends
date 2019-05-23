@@ -26,13 +26,13 @@ type PlayerUpdate struct {
 
 // Options describes which kind of game is played
 type Options struct {
-	Singleton    bool `firestore:"singleton" json:"singleton"`
-	Pauper       bool `firestore:"pauper" json:"pauper"`
-	ColorOptions `json:"color"`
-	Set          string `firestore:"set" json:"set"`
+	Singleton     bool   `firestore:"singleton" json:"singleton"`
+	Set           string `firestore:"set" json:"set"`
+	RarityOptions `firestore:"rarity" json:"rarity"`
+	ColorOptions  `json:"color"`
 }
 
-// ColorOptions contains all settings related to colors
+// ColorOptions contains all settings related to colors. false == keep
 type ColorOptions struct {
 	White     bool `json:"white"`
 	Blue      bool `json:"blue"`
@@ -40,6 +40,14 @@ type ColorOptions struct {
 	Red       bool `json:"red"`
 	Green     bool `json:"green"`
 	Colorless bool `json:"colorless"`
+}
+
+// RarityOptions denotes which rarities should be filtered. false == keep
+type RarityOptions struct {
+	Common   bool `json:"common"`
+	Uncommon bool `json:"uncommon"`
+	Rare     bool `json:"rare"`
+	Mythic   bool `json:"mythic"`
 }
 
 // Lookup does a lookup with the given color string
@@ -60,7 +68,21 @@ func (c ColorOptions) Lookup(color string) bool {
 	return false
 }
 
-func allColors() ColorOptions { return ColorOptions{true, true, true, true, true, true} }
+// Lookup does a lookup for the given rarity string
+func (r RarityOptions) Lookup(rarity string) bool {
+	switch rarity {
+	case "common":
+		return r.Common
+	case "uncommon":
+		return r.Uncommon
+	case "rare":
+		return r.Rare
+	case "mythic":
+		return r.Mythic
+	}
+
+	return false
+}
 
 // Session describes a playsession
 type Session struct {
@@ -131,8 +153,13 @@ func (s *Session) constructed(cardDB CardDB) {
 	}
 
 	// filter colors
-	if s.Options.ColorOptions != allColors() {
+	if s.Options.ColorOptions != (ColorOptions{}) {
 		collection.FilterColors(cardDB, s.Options.ColorOptions)
+	}
+
+	// rarity
+	if s.Options.RarityOptions != (RarityOptions{}) {
+		collection.FilterRarities(cardDB, s.Options.RarityOptions)
 	}
 
 	// set filter
@@ -146,10 +173,6 @@ func (s *Session) constructed(cardDB CardDB) {
 		max = 1
 	}
 	collection.MaxPerCard(cardDB, max)
-
-	if s.Options.Pauper {
-		collection.FilterRarities(cardDB, "common")
-	}
 
 	//  write back for each player
 	for _, player := range s.Players {

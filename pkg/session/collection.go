@@ -53,12 +53,7 @@ func (c Collection) MaxPerCard(cardDB CardDB, max byte) {
 }
 
 // FilterRarities removes all cards that are not part of the given rarities
-func (c Collection) FilterRarities(cardDB CardDB, rarities ...string) {
-	keepRarity := map[string]struct{}{}
-	for _, rarity := range rarities {
-		keepRarity[rarity] = struct{}{}
-	}
-
+func (c Collection) FilterRarities(cardDB CardDB, rarityOptions RarityOptions) {
 	for arenaID := range c {
 		cardDetails, ok := cardDB[arenaID]
 		if !ok {
@@ -66,7 +61,8 @@ func (c Collection) FilterRarities(cardDB CardDB, rarities ...string) {
 			continue
 		}
 
-		if _, ok := keepRarity[cardDetails.Rarity]; !ok {
+		keep := rarityOptions.Lookup(cardDetails.Rarity)
+		if !keep {
 			delete(c, arenaID)
 		}
 	}
@@ -98,7 +94,7 @@ func (c Collection) FilterColors(cardDB CardDB, colors ColorOptions) {
 		}
 
 		if len(cardDetails.ColorIdentity) == 0 {
-			if !colors.Colorless {
+			if colors.Colorless {
 				delete(c, arenaID)
 			}
 			continue
@@ -106,9 +102,8 @@ func (c Collection) FilterColors(cardDB CardDB, colors ColorOptions) {
 
 		// all colors need to match for it to stay in the collection
 		for _, color := range cardDetails.ColorIdentity {
-			match := colors.Lookup(color)
-
-			if !match {
+			keep := colors.Lookup(color)
+			if !keep {
 				delete(c, arenaID)
 				break
 			}
