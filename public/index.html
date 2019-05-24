@@ -99,6 +99,20 @@
 							<option>CMC</option>
 						</select>
 					</div>
+					<div>
+						<div>
+							<label>color filter:</label>
+							<span v-for="(item,key) in ViewColor" >
+								<input type="checkbox" v-model="ViewColor[key]"><label>{{key}}</label>
+							</span>
+						</div>
+						<div>
+							<label>cmc filter:</label>
+							<span v-for="(item,key) in ViewCMC" >
+								<input type="checkbox" v-model="ViewCMC[key]"><label>{{key}}</label>
+							</span>
+						</div>
+					</div>
 				</div>
 			</div>
 			
@@ -116,11 +130,8 @@
 			</div>
 			
 			<div id="card_pool_view" v-if="CardPoolUnsorted.length > 0">
-				<template v-if="CardOrder == 'CMC'">
-					<figure is="card" v-for="(card, index) in CardPoolCMC"  v-bind:key="card.id" v-bind:card="card" v-bind:language="Language" v-bind:action="pick"></figure>
-				</template>
-				<template v-if="CardOrder == 'Color'">
-					<figure is="card" v-for="(card, index) in CardPoolColor" v-bind:key="card.id" v-bind:card="card" v-bind:language="Language" v-bind:action="pick"></figure> 
+				<template>
+					<figure is="card" v-for="(card, index) in CardPoolSorted"  v-bind:key="card.id" v-bind:card="card" v-bind:language="Language" v-bind:action="pick"></figure>
 				</template>
 			</div>
 		</div>

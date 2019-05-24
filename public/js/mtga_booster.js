@@ -1,4 +1,5 @@
 const ColorOrder = { 'W': 0, 'U': 1, 'B': 2, 'R': 3, 'G': 4 }
+const ColorShorts = { 'W': 'white', 'U': 'blue', 'B': 'black', 'R': 'red', 'G': 'green'}
 const API = "api/v1/sessions"
 
 const Languages = [
@@ -82,6 +83,23 @@ var app = new Vue({
 		HideCollectionManager: true,
 		Languages: Languages,
 		Language: 'en',
+		ViewColor: {
+			white: true,
+			blue: true,
+			black: true,
+			red: true,
+			green: true,
+			colorless: true,
+		},
+		ViewCMC: {
+			0: true,
+			1: true,
+			2: true,
+			3: true,
+			4: true,
+			5: true,
+			"6+": true,
+		},
 
 		// lobby socket
 		websocket: null,
@@ -104,23 +122,65 @@ var app = new Vue({
 				}
 			}
 
-			return output;
+			return output
 		},
-		CardPoolCMC: function () {
-			// sort by CMC, color, name (TODO name)
-			return this.CardPoolUnsorted.slice().sort(function (lhs, rhs) {
-				if (lhs.cmc == rhs.cmc)
-					return orderColor(lhs.colors, rhs.colors);
-				return lhs.cmc > rhs.cmc;
-			});
+		CardPoolFiltered: function () {
+			if (!this.CardPoolUnsorted) {
+				return []
+			}
+
+			let colorFiltered = []
+			for (let card of this.CardPoolUnsorted) {
+				// special case colorless
+				if (card.colors.length == 0) {
+					if (this.ViewColor['colorless']) {
+						colorFiltered.push(card)
+					}
+					continue
+				}
+
+				// main color filter
+				for ( color of card.colors ) {
+					if ( this.ViewColor[ColorShorts[color]] ) {
+						colorFiltered.push(card)
+						break
+					}
+				}
+			}
+
+			let cmcFiltered = []
+			for (let card of colorFiltered) {
+				// special case 6+
+				if (card.cmc >= 6) {
+					if (this.ViewCMC['6+']) {
+						cmcFiltered.push(card)
+					}
+					continue
+				}
+				// main cmc filter
+				if (this.ViewCMC[card.cmc]) {
+					cmcFiltered.push(card)
+				}
+			}
+
+			return cmcFiltered
 		},
-		CardPoolColor: function () {
-			// sort by color, cmc, name (TODO name)
-			return this.CardPoolUnsorted.slice().sort(function (lhs, rhs) {
-				if (orderColor(lhs.colors, rhs.colors) == 0)
+		CardPoolSorted: function () {
+			if (this.CardOrder == 'CMC') {
+				// sort by CMC, color, name (TODO name)
+				return this.CardPoolFiltered.slice().sort(function (lhs, rhs) {
+					if (lhs.cmc == rhs.cmc)
+						return orderColor(lhs.colors, rhs.colors);
 					return lhs.cmc > rhs.cmc;
-				return orderColor(lhs.colors, rhs.colors);
-			});
+				});
+			}
+			if (this.CardOrder == 'Color') {
+				return this.CardPoolFiltered.slice().sort(function (lhs, rhs) {
+					if (orderColor(lhs.colors, rhs.colors) == 0)
+						return lhs.cmc > rhs.cmc;
+					return orderColor(lhs.colors, rhs.colors);
+				});
+			}
 		},
 		DeckUnsorted: function () {
 			if (!this.CardPool || !this.Picks || !this.Cards) {

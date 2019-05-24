@@ -94,7 +94,7 @@ func (c Collection) FilterColors(cardDB CardDB, colors ColorOptions) {
 		}
 
 		if len(cardDetails.ColorIdentity) == 0 {
-			if colors.Colorless {
+			if !colors.Colorless {
 				delete(c, arenaID)
 			}
 			continue
