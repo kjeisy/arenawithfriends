@@ -15,6 +15,10 @@ const Languages = [
 	{ code: 'zht', name: 'Traditional Chinese' }
 ]
 
+window.onbeforeunload = function () {
+    return "The session data is lost after the window is closed.";
+}
+
 const Sets = ["m19", "xln", "rix", "dom", "grn", "rna", "war"]
 
 function orderColor(lhs, rhs) {
@@ -220,64 +224,12 @@ var app = new Vue({
 				}
 			});
 		},
-		set_session(s) {
-			this.Session = s
-			this.verify_session()
-		},
 		textbox_set_session(event) {
 			this.set_session(event.target.value);
 		},
-		verify_session() {
-			if (!this.Session) {
-				this.clear_session()
-				return;
-			}
-			fetch(API + "/" + this.Session).then(function (response) {
-				try {
-					response.json().then(function (rep) {
-						if (rep['error']) {
-							let session = app.Session
-							app.clear_session();
-							alert("session not found: " + session);
-							return;
-						}
-
-						sessionStorage.setItem("sessionid", app.Session)
-					});
-				} catch (e) {
-					alert(e);
-				}
-			});
-		},
-		verify_player() {
-			if (!this.Session) {
-				this.clear_session();
-				return;
-			}
-			if (!this.Player) {
-				this.clear_registration();
-				return;
-			}
-
-			fetch(API + "/" + this.Session).then(function (response) {
-				try {
-					response.json().then(function (rep) {
-						if (rep['error']) {
-							let session = app.Session
-							app.clear_session();
-							alert("session not found: " + session);
-							return;
-						}
-						if (!rep['players'][app.Player]) {
-							console.log("player not found");
-							app.clear_registration();
-							return;
-						}
-					});
-				} catch (e) {
-					alert(e);
-				}
-			});
+		set_session(s) {
+			this.Session = s
+			sessionStorage.setItem("sessionid", app.Session)
 		},
 		clear_session() {
 			this.clear_registration();
@@ -332,23 +284,22 @@ var app = new Vue({
 
 					if (rep['error']) {
 						alert("Error: " + rep['error'])
-						app.websocket.close()
-						app.websocket = null
-						app.SessionDetails = null
-						app.Player = null
+						app.clear_session()
 						return
 					}
 
+					// first update should be a player registration
 					if (!app.Player) {
 						if (rep['id']) {
-							app.set_player(rep['id'])
+							app.Player = rep['id']
 							return
 						}
 						alert("Error: no ID received")
 						app.clear_registration()
+						return
 					}
 
-					// joined lobby -> receive updates
+					// subsequent updates: lobby updates
 					app.SessionDetails = rep
 					if (app.SessionDetails['started']) {
 						app.load_card_pool()
@@ -358,10 +309,6 @@ var app = new Vue({
 				  }
 			  };
 			};
-		},
-		set_player(id) {
-			this.Player = id
-			this.verify_player()
 		},
 		player_ready(event) {
 			if (!this.Player || !this.Session || !this.websocket ) {
@@ -392,7 +339,7 @@ var app = new Vue({
 							sessionStorage.setItem("picks", JSON.stringify(app.Picks))
 						}
 
-						// need to load card pool before closing websocket (session data is removed afterwards)
+						// need to load card pool before closing websocket (session data is removed once all clients have disconnected)
 						if ( app.websocket ) {
 							app.websocket.close()
 							app.websocket = null
@@ -431,11 +378,10 @@ var app = new Vue({
 			picked--;
 			if (picked <= 0) {
 				this.$delete(this.Picks, card.id);
-				sessionStorage.setItem("picks", JSON.stringify(this.Picks))
-				return;
+			} else {
+				this.$set(this.Picks, card.id, picked);
 			}
-
-			this.$set(this.Picks, card.id, picked);
+			
 			sessionStorage.setItem("picks", JSON.stringify(this.Picks))
 		},
 		parseMTGALog: function (e) {
@@ -489,10 +435,12 @@ var app = new Vue({
 					for (let c in app.Cards) {
 						// populate all printed names and image uris if there is no resource for the given language
 						for (let l of app.Languages) {
-							if (!(l.code in app.Cards[c]['printed_name']))
+							if (!(l.code in app.Cards[c]['printed_name'])) {
 								app.Cards[c]['printed_name'][l.code] = app.Cards[c]['name'];
-							if (!(l.code in app.Cards[c]['image_uris']))
+							}
+							if (!(l.code in app.Cards[c]['image_uris'])) {
 								app.Cards[c]['image_uris'][l.code] = app.Cards[c]['image_uris']['en'];
+							}
 						}
 					}
 					app.Cards = tmpCards
@@ -506,25 +454,19 @@ var app = new Vue({
 		let localStorageCollection = localStorage.getItem("Collection")
 		if (localStorageCollection) {
 			try {
-				let json = JSON.parse(localStorageCollection);
-				if (json) {
-					this.Collection = json
-					console.log("Loaded collection from local storage")
-				}
+				this.Collection  = JSON.parse(localStorageCollection)
+				console.log("Loaded collection from local storage")
 			} catch (e) {
 				console.error(e);
 			}
 		}
 
 		// Look for locally stored picks
-		let picks = sessionStorage.getItem("picks");
+		let picks = sessionStorage.getItem("picks")
 		if (picks) {
 			try {
-				let json = JSON.parse(picks);
-				if (json) {
-					this.Picks = json
-					console.log("Loaded picks from local storage");
-				}
+				this.Picks = JSON.parse(picks)
+				console.log("Loaded picks from local storage")
 			} catch (e) {
 				console.error(e);
 			}
@@ -534,22 +476,11 @@ var app = new Vue({
 		let cardpool = sessionStorage.getItem("cardpool");
 		if (cardpool) {
 			try {
-				let json = JSON.parse(cardpool);
-				if (json) {
-					this.CardPool = json
-					console.log("Loaded cardpool from local storage");
-				}
+				this.CardPool = JSON.parse(cardpool);
+				console.log("Loaded cardpool from local storage")
 			} catch (e) {
 				console.error(e);
 			}
-		}
-
-		// if the cardpool is stored locally, don't do any API calls to verify session validity
-		if ( this.CardPool ) {
-			return
-		}
-		if ( this.Session ) {
-			this.verify_session()
 		}
 	}
 });
